@@ -2,11 +2,13 @@ package com.codebattle.app
 
 import com.codebattle.di.serverModule
 import com.codebattle.di.sharedModule
+import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
@@ -25,6 +27,19 @@ fun Application.module() {
     install(Koin) {
         slf4jLogger()
         modules(serverModule, sharedModule)
+    }
+
+    install(CORS) {
+        allowMethod(HttpMethod.Options)
+        allowMethod(HttpMethod.Put)
+        allowMethod(HttpMethod.Delete)
+        allowMethod(HttpMethod.Patch)
+        allowHeader(HttpHeaders.Authorization)
+        allowHeader(HttpHeaders.ContentType)
+        allowHeader(HttpHeaders.AccessControlAllowOrigin)
+        
+        anyHost() // Don't use in production!
+        allowNonSimpleContentTypes = true
     }
 
     install(WebSockets) {

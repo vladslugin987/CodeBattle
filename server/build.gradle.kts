@@ -21,6 +21,7 @@ dependencies {
     implementation(libs.ktor.serverNetty)
     implementation(libs.ktor.serverWebsockets)
     implementation(libs.ktor.serverContentNegotiation)
+    implementation(libs.ktor.serverCors)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.koin.ktor)
     implementation(libs.koin.logger.slf4j)
