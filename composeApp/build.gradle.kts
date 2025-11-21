@@ -9,7 +9,12 @@ plugins {
 }
 
 kotlin {
-    jvm()
+    jvm {
+        @Suppress("OPT_IN_USAGE")
+        mainRun {
+            mainClass.set("com.codebattle.app.MainKt")
+        }
+    }
     
     js {
         browser()
@@ -34,6 +39,9 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(projects.shared)
             implementation(libs.koin.compose)
+            
+            // Explicitly add Ktor client dependencies here to ensure visibility
+            implementation(libs.ktor.client.core)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -41,6 +49,7 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+            implementation(libs.ktor.client.cio)
         }
     }
 }

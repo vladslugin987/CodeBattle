@@ -1,13 +1,13 @@
 [versions]
-androidx-lifecycle = "2.8.4"
+androidx-lifecycle = "2.9.5"
 composeHotReload = "1.0.0-rc02"
-composeMultiplatform = "1.7.0"
+composeMultiplatform = "1.9.1"
 junit = "4.13.2"
-kotlin = "2.1.0"
-kotlinx-coroutines = "1.10.1"
+kotlin = "2.2.20"
+kotlinx-coroutines = "1.10.2"
 kotlinx-serialization = "1.8.0"
-ktor = "3.0.3"
-logback = "1.5.16"
+ktor = "3.3.1"
+logback = "1.5.20"
 koin = "4.0.1"
 koin-compose = "4.0.1"
 
@@ -35,7 +35,7 @@ ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" } # generic for js/wasm usually
-ktor-client-websockets = { module = "io.ktor:ktor-client-plugins", version.ref = "ktor" } # Double check websockets module
+ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" } # Double check websockets module
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 
 # Koin

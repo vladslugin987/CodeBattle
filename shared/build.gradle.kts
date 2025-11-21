@@ -20,11 +20,11 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.serialization.json)
-            implementation(libs.ktor.client.core)
+            api(libs.ktor.client.core) // Change implementation to api
             implementation(libs.ktor.client.websockets)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)
-            implementation(libs.koin.core)
+            api(libs.koin.core) // Change implementation to api
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

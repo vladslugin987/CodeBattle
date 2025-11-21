@@ -43,8 +43,8 @@ fun Application.module() {
     }
 
     install(WebSockets) {
-        pingPeriod = Duration.ofSeconds(15)
-        timeout = Duration.ofSeconds(15)
+        pingPeriod = kotlin.time.Duration.parse("15s")
+        timeout = kotlin.time.Duration.parse("15s")
         maxFrameSize = Long.MAX_VALUE
         masking = false
     }
