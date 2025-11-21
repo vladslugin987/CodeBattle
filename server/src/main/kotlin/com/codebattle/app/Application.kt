@@ -95,6 +95,9 @@ fun Application.module() {
                                 is GameEvent.SetReady -> {
                                     currentRoom?.setPlayerReady(this, event.isReady)
                                 }
+                                is GameEvent.SubmitSolution -> {
+                                    currentRoom?.submitSolution(this, event.codeText)
+                                }
                                 else -> {}
                             }
                         } catch (e: Exception) {

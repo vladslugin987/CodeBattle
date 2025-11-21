@@ -123,6 +123,23 @@ class GameRoom(
         checkStartGame()
     }
 
+    fun submitSolution(session: WebSocketSession, codeText: String) {
+        val playerId = playerSessions.entries.find { it.value == session }?.key ?: return
+        
+        _gameState.update { currentState ->
+            val updatedPlayers = currentState.players.map { player ->
+                if (player.id == playerId) {
+                    player.copy(codeText = codeText, isFinished = true)
+                } else {
+                    player
+                }
+            }
+            currentState.copy(players = updatedPlayers)
+        }
+        broadcastState()
+        checkBattleCompletion()
+    }
+
     private fun checkStartGame() {
         val state = _gameState.value
         if (state.status == GameStatus.WAITING && 
@@ -176,6 +193,14 @@ class GameRoom(
                  _gameState.update { it.copy(status = GameStatus.RESULT) }
                  broadcastState()
             }
+        }
+    }
+
+    private fun checkBattleCompletion() {
+        val state = _gameState.value
+        if (state.status == GameStatus.BATTLE && state.players.isNotEmpty() && state.players.all { it.isFinished }) {
+            _gameState.update { it.copy(status = GameStatus.RESULT) }
+            broadcastState()
         }
     }
 

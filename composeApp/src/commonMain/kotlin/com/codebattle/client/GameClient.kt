@@ -98,5 +98,11 @@ class GameClient(private val client: HttpClient) {
              sendEvent?.invoke(GameEvent.SetReady(isReady))
         }
     }
+
+    fun submitSolution(code: String) {
+        scope.launch {
+            sendEvent?.invoke(GameEvent.SubmitSolution(code))
+        }
+    }
 }
 
