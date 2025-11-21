@@ -2,6 +2,9 @@ package com.codebattle.app
 
 import com.codebattle.di.serverModule
 import com.codebattle.di.sharedModule
+import com.codebattle.model.GameEvent
+import com.codebattle.server.game.RoomManager
+import com.codebattle.server.game.GameRoom
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
@@ -13,7 +16,9 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import io.ktor.websocket.*
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.slf4jLogger
 import java.time.Duration
@@ -38,7 +43,7 @@ fun Application.module() {
         allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.AccessControlAllowOrigin)
         
-        anyHost() // Don't use in production!
+        anyHost()
         allowNonSimpleContentTypes = true
     }
 
@@ -53,8 +58,11 @@ fun Application.module() {
         json(Json {
             prettyPrint = true
             isLenient = true
+            ignoreUnknownKeys = true
         })
     }
+
+    val roomManager by inject<RoomManager>()
 
     routing {
         get("/") {
@@ -62,9 +70,42 @@ fun Application.module() {
         }
         
         webSocket("/ws") {
-            send("Welcome to CodeBattle!")
-            for (frame in incoming) {
-                // Handle incoming frames
+            var currentRoom: GameRoom? = null
+            try {
+                for (frame in incoming) {
+                    if (frame is Frame.Text) {
+                        val text = frame.readText()
+                        try {
+                            val event = Json.decodeFromString<GameEvent>(text)
+                            when (event) {
+                                is GameEvent.CreateRoom -> {
+                                    currentRoom = roomManager.createRoom(this, event.nickname)
+                                }
+                                is GameEvent.JoinRoom -> {
+                                    val room = roomManager.joinRoom(event.roomId, this, event.nickname)
+                                    if (room == null) {
+                                        send(Frame.Text(Json.encodeToString<GameEvent>(GameEvent.Error("Room not found"))))
+                                    } else {
+                                        currentRoom = room
+                                    }
+                                }
+                                is GameEvent.UpdateCode -> {
+                                    currentRoom?.updatePlayerCode(this, event.codeText)
+                                }
+                                is GameEvent.SetReady -> {
+                                    currentRoom?.setPlayerReady(this, event.isReady)
+                                }
+                                else -> {}
+                            }
+                        } catch (e: Exception) {
+                            send(Frame.Text(Json.encodeToString<GameEvent>(GameEvent.Error("Invalid JSON or Event: ${e.message}"))))
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                roomManager.removePlayer(this)
             }
         }
     }
