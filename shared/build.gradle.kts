@@ -19,7 +19,7 @@ kotlin {
     
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.kotlinx.serialization.json)
+            api(libs.kotlinx.serialization.json)
             api(libs.ktor.client.core) // Change implementation to api
             implementation(libs.ktor.client.websockets)
             implementation(libs.ktor.client.content.negotiation)

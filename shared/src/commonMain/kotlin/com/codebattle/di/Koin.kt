@@ -2,6 +2,7 @@ package com.codebattle.di
 
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import org.koin.core.context.startKoin
@@ -20,6 +21,10 @@ fun initKoin(appModule: Module = module {}) {
 val sharedModule = module {
     single {
         HttpClient {
+            install(WebSockets) {
+                // Configure WebSockets if needed (pingInterval, etc.)
+                // pingInterval = 15_000
+            }
             install(ContentNegotiation) {
                 json(Json {
                     prettyPrint = true

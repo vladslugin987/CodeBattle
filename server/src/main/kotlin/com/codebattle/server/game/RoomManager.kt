@@ -4,10 +4,10 @@ import com.codebattle.model.GameEvent
 import com.codebattle.model.GameState
 import com.codebattle.model.GameStatus
 import com.codebattle.model.Player
+import com.codebattle.server.repository.TaskRepository
 import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.send
 import io.ktor.websocket.Frame
-import io.ktor.websocket.readText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,19 +23,20 @@ import kotlinx.serialization.json.Json
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
-class RoomManager {
+class RoomManager(private val taskRepository: TaskRepository) {
     private val rooms = ConcurrentHashMap<String, GameRoom>()
 
     fun createRoom(hostSession: WebSocketSession, hostNickname: String): GameRoom {
-        val roomId = UUID.randomUUID().toString().substring(0, 6).uppercase()
-        val room = GameRoom(roomId)
+        // Generate short 4-char ID (e.g., X7Z9)
+        val roomId = generateRoomId()
+        val room = GameRoom(roomId, taskRepository)
         rooms[roomId] = room
         room.addPlayer(hostSession, hostNickname)
         return room
     }
 
     fun joinRoom(roomId: String, session: WebSocketSession, nickname: String): GameRoom? {
-        val room = rooms[roomId] ?: return null
+        val room = rooms[roomId.uppercase()] ?: return null // Case insensitive join
         room.addPlayer(session, nickname)
         return room
     }
@@ -50,9 +51,19 @@ class RoomManager {
             }
         }
     }
+    
+    private fun generateRoomId(): String {
+        val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // Removed similar looking chars like I, 1, O, 0
+        return (1..4)
+            .map { chars.random() }
+            .joinToString("")
+    }
 }
 
-class GameRoom(val roomId: String) {
+class GameRoom(
+    val roomId: String,
+    private val taskRepository: TaskRepository
+) {
     private val _gameState = MutableStateFlow(
         GameState(roomId, GameStatus.WAITING, emptyList())
     )
@@ -94,8 +105,8 @@ class GameRoom(val roomId: String) {
              }
              currentState.copy(players = updatedPlayers)
          }
-         // Optimization: Don't broadcast every keystroke to everyone, maybe only on specific intervals or request
-         // For now, let's broadcast to keep simple sync
+         // Optimization: For high frequency updates, we might want to use a dedicated event 
+         // instead of broadcasting the full state.
          broadcastState()
     }
     
@@ -123,6 +134,9 @@ class GameRoom(val roomId: String) {
 
     private fun startGame() {
         gameScope.launch {
+            // Pick random task
+            val task = taskRepository.getRandomTask()
+            
             // Countdown
             _gameState.update { it.copy(status = GameStatus.COUNTDOWN, timeRemainingSeconds = 3) }
             broadcastState()
@@ -137,10 +151,17 @@ class GameRoom(val roomId: String) {
             _gameState.update { 
                 it.copy(
                     status = GameStatus.BATTLE, 
-                    taskText = "Task: Write a function that returns the sum of two numbers.", // Mock task
-                    timeRemainingSeconds = 60 
+                    taskText = "${task.title}\n\n${task.description}\n\nExample: ${task.inputExample} -> ${task.outputExample}", 
+                    timeRemainingSeconds = 60 // TODO: Move duration to config or task
                 ) 
             }
+            
+            // Initialize players code with template
+            _gameState.update { state ->
+                val playersWithTemplate = state.players.map { it.copy(codeText = task.templateCode) }
+                state.copy(players = playersWithTemplate)
+            }
+            
             broadcastState()
             
             // Game Loop / Timer
@@ -178,4 +199,3 @@ class GameRoom(val roomId: String) {
     
     fun isEmpty() = playerSessions.isEmpty()
 }
-
