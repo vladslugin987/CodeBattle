@@ -3,6 +3,8 @@ package com.codebattle.app
 import com.codebattle.di.serverModule
 import com.codebattle.di.sharedModule
 import com.codebattle.model.GameEvent
+import com.codebattle.model.GameState
+import com.codebattle.model.GameStatus
 import com.codebattle.server.game.RoomManager
 import com.codebattle.server.game.GameRoom
 import io.ktor.http.*
@@ -97,6 +99,20 @@ fun Application.module() {
                                 }
                                 is GameEvent.SubmitSolution -> {
                                     currentRoom?.submitSolution(this, event.codeText)
+                                }
+                                is GameEvent.RunCode -> {
+                                    val output = currentRoom?.runCode(this, event.codeText)
+                                        ?: "Not in a room"
+                                    val result = GameEvent.RunResult(output)
+                                    send(Frame.Text(Json.encodeToString<GameEvent>(result)))
+                                }
+                                is GameEvent.LeaveRoom -> {
+                                    roomManager.removePlayer(this)
+                                    currentRoom = null
+                                    val reset = GameEvent.GameStateUpdate(
+                                        GameState("", GameStatus.WAITING, emptyList())
+                                    )
+                                    send(Frame.Text(Json.encodeToString<GameEvent>(reset)))
                                 }
                                 else -> {}
                             }

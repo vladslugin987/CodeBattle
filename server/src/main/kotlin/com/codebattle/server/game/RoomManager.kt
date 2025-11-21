@@ -44,10 +44,11 @@ class RoomManager(private val taskRepository: TaskRepository) {
     fun getRoom(roomId: String): GameRoom? = rooms[roomId]
     
     fun removePlayer(session: WebSocketSession) {
-        rooms.values.forEach { room ->
-            room.removePlayer(session)
-            if (room.isEmpty()) {
-                rooms.remove(room.roomId)
+        rooms.entries.toList().forEach { (id, room) ->
+            if (room.removePlayer(session)) {
+                if (room.isEmpty()) {
+                    rooms.remove(id)
+                }
             }
         }
     }
@@ -85,8 +86,8 @@ class GameRoom(
         broadcastState()
     }
 
-    fun removePlayer(session: WebSocketSession) {
-        val playerId = playerSessions.entries.find { it.value == session }?.key ?: return
+    fun removePlayer(session: WebSocketSession): Boolean {
+        val playerId = playerSessions.entries.find { it.value == session }?.key ?: return false
         playerSessions.remove(playerId)
         
         _gameState.update { currentState ->
@@ -94,6 +95,7 @@ class GameRoom(
         }
         
         broadcastState()
+        return true
     }
 
     fun updatePlayerCode(session: WebSocketSession, codeText: String) {
@@ -175,7 +177,13 @@ class GameRoom(
             
             // Initialize players code with template
             _gameState.update { state ->
-                val playersWithTemplate = state.players.map { it.copy(codeText = task.templateCode) }
+                val playersWithTemplate = state.players.map { 
+                    it.copy(
+                        codeText = task.templateCode,
+                        isFinished = false,
+                        lastRunOutput = null
+                    ) 
+                }
                 state.copy(players = playersWithTemplate)
             }
             
@@ -202,6 +210,34 @@ class GameRoom(
             _gameState.update { it.copy(status = GameStatus.RESULT) }
             broadcastState()
         }
+    }
+
+    fun runCode(session: WebSocketSession, codeText: String): String? {
+        val playerId = playerSessions.entries.find { it.value == session }?.key ?: return null
+        val output = simulateExecution(codeText)
+        _gameState.update { currentState ->
+            val updatedPlayers = currentState.players.map { player ->
+                if (player.id == playerId) {
+                    player.copy(codeText = codeText, lastRunOutput = output, isFinished = false)
+                } else {
+                    player
+                }
+            }
+            currentState.copy(players = updatedPlayers)
+        }
+        broadcastState()
+        return output
+    }
+
+    private fun simulateExecution(code: String): String {
+        val lines = code.lines().size
+        val hasReturn = code.contains("return")
+        val summary = buildString {
+            append("Mock run complete. ")
+            append("Lines: $lines. ")
+            append(if (hasReturn) "Detected return statement." else "No return detected.")
+        }
+        return summary
     }
 
     private fun broadcastState() {

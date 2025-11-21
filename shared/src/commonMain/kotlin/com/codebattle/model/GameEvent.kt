@@ -27,6 +27,14 @@ sealed class GameEvent {
     @SerialName("set_ready")
     data class SetReady(val isReady: Boolean) : GameEvent()
 
+    @Serializable
+    @SerialName("leave_room")
+    object LeaveRoom : GameEvent()
+
+    @Serializable
+    @SerialName("run_code")
+    data class RunCode(val codeText: String) : GameEvent()
+
     // Server -> Client
     @Serializable
     @SerialName("game_state_update")
@@ -36,6 +44,10 @@ sealed class GameEvent {
     @SerialName("game_result")
     data class GameResult(val winnerId: String?, val scores: Map<String, Int>) : GameEvent()
     
+    @Serializable
+    @SerialName("run_result")
+    data class RunResult(val output: String) : GameEvent()
+
     @Serializable
     @SerialName("error")
     data class Error(val message: String) : GameEvent()

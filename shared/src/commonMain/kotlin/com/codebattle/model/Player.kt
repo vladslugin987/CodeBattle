@@ -9,6 +9,7 @@ data class Player(
     val score: Int = 0,
     val codeText: String = "",
     val isReady: Boolean = false,
-    val isFinished: Boolean = false
+    val isFinished: Boolean = false,
+    val lastRunOutput: String? = null
 )
 

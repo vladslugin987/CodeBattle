@@ -19,11 +19,14 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 class GameClient(private val client: HttpClient) {
-    private val _gameState = MutableStateFlow(GameState("", GameStatus.WAITING, emptyList()))
+    private val defaultState = GameState("", GameStatus.WAITING, emptyList())
+    private val _gameState = MutableStateFlow(defaultState)
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
 
     private val _connectionStatus = MutableStateFlow("Disconnected")
     val connectionStatus: StateFlow<String> = _connectionStatus.asStateFlow()
+    private val _runOutput = MutableStateFlow<String?>(null)
+    val runOutput: StateFlow<String?> = _runOutput.asStateFlow()
     
     private var sendEvent: (suspend (GameEvent) -> Unit)? = null
     private val scope = CoroutineScope(Dispatchers.Default)
@@ -59,6 +62,7 @@ class GameClient(private val client: HttpClient) {
             } finally {
                 _connectionStatus.value = "Disconnected"
                 sendEvent = null
+                resetState()
             }
         }
     }
@@ -67,7 +71,11 @@ class GameClient(private val client: HttpClient) {
         when (event) {
             is GameEvent.GameStateUpdate -> {
                 _gameState.value = event.state
+                if (event.state.roomId.isEmpty()) {
+                    _runOutput.value = null
+                }
             }
+            is GameEvent.RunResult -> _runOutput.value = event.output
             is GameEvent.Error -> {
                 println("Server Error: ${event.message}")
             }
@@ -103,6 +111,24 @@ class GameClient(private val client: HttpClient) {
         scope.launch {
             sendEvent?.invoke(GameEvent.SubmitSolution(code))
         }
+    }
+
+    fun runCode(code: String) {
+        scope.launch {
+            sendEvent?.invoke(GameEvent.RunCode(code))
+        }
+    }
+
+    fun leaveRoom() {
+        scope.launch {
+            sendEvent?.invoke(GameEvent.LeaveRoom)
+            resetState()
+        }
+    }
+
+    private fun resetState() {
+        _gameState.value = defaultState
+        _runOutput.value = null
     }
 }
 
