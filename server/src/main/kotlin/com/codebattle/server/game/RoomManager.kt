@@ -94,6 +94,12 @@ class GameRoom(
             currentState.copy(players = currentState.players.filter { it.id != playerId })
         }
         
+        // If battle is in progress and only 1 (or 0) players remain, end the game
+        val currentState = _gameState.value
+        if (currentState.status == GameStatus.BATTLE && currentState.players.size < 2) {
+             _gameState.update { it.copy(status = GameStatus.RESULT) }
+        }
+        
         broadcastState()
         return true
     }
@@ -145,7 +151,7 @@ class GameRoom(
     private fun checkStartGame() {
         val state = _gameState.value
         if (state.status == GameStatus.WAITING && 
-            state.players.isNotEmpty() && 
+            state.players.size > 1 && 
             state.players.all { it.isReady }) {
             startGame()
         }
