@@ -233,7 +233,7 @@ fun GameRoomScreen(
         ) {
             Column {
                 Text("ROOM ${gameState.roomId}", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
-                Text("Status: ${gameState.status}", style = MaterialTheme.typography.labelMedium)
+                Text("Status: ${gameState.status}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
             }
             TextButton(onClick = onDisconnect) {
                 Text("Disconnect")
@@ -293,6 +293,7 @@ private fun WaitingLayout(
         PlayersList(
             players = gameState.players,
             showCodeLength = false,
+            gameStatus = gameState.status,
             modifier = Modifier.weight(1f)
         )
 
@@ -340,6 +341,7 @@ private fun BattleLayout(
             PlayersList(
                 players = gameState.players,
                 showCodeLength = true,
+                gameStatus = gameState.status,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -448,10 +450,11 @@ private fun TaskCard(text: String) {
 private fun PlayersList(
     players: List<com.codebattle.model.Player>,
     showCodeLength: Boolean,
+    gameStatus: GameStatus? = null,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text("PLAYERS:", style = MaterialTheme.typography.labelMedium, fontFamily = FontFamily.Monospace)
+        Text("PLAYERS:", style = MaterialTheme.typography.labelMedium, fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.onSurface)
         LazyColumn(modifier = Modifier.padding(top = 8.dp)) {
             items(players) { player ->
                 val borderColor = when {
@@ -469,10 +472,11 @@ private fun PlayersList(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(player.nickname, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                            Text(player.nickname, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             Text(
                                 when {
                                     player.isFinished -> "Submitted"
+                                    gameStatus == GameStatus.BATTLE && player.isReady -> "Coding"
                                     player.isReady -> "Ready"
                                     else -> "Waiting"
                                 },
@@ -481,7 +485,7 @@ private fun PlayersList(
                             )
                         }
                         if (showCodeLength) {
-                            Text("${player.codeText.length} chars", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                            Text("${player.codeText.length} chars", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -497,46 +501,103 @@ fun CodeEditor(
     borderColor: Color,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
-            .padding(8.dp)
-    ) {
-        val lineCount = maxOf(1, value.text.split('\n').size)
-        Column(
-            modifier = Modifier.padding(end = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+    val keywords = remember { listOf("fun", "if", "switch", "while", "for", "return", "class", "var", "val") }
+    var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    
+    // Analyze text for autocomplete
+    LaunchedEffect(value.text, value.selection) {
+        val text = value.text
+        val cursor = value.selection.start
+        if (cursor > 0 && cursor == value.selection.end) {
+            val currentWord = text.take(cursor).takeLastWhile { it.isLetter() }
+            suggestions = if (currentWord.isNotEmpty()) {
+                keywords.filter { it.startsWith(currentWord) && it != currentWord }
+            } else {
+                emptyList()
+            }
+        } else {
+            suggestions = emptyList()
+        }
+    }
+
+    Box(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .matchParentSize()
+                .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
+                .padding(8.dp)
         ) {
-            repeat(lineCount) { index ->
-                Text(
-                    text = (index + 1).toString().padStart(2, ' '),
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            val lineCount = maxOf(1, value.text.split('\n').size)
+            Column(
+                modifier = Modifier.padding(end = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                repeat(lineCount) { index ->
+                    Text(
+                        text = (index + 1).toString().padStart(2, ' '),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.weight(1f),
+                textStyle = TextStyle(
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                ),
+                minLines = 12,
+                maxLines = 30,
+                visualTransformation = SyntaxHighlightTransformation(MaterialTheme.colorScheme.secondary),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = MaterialTheme.colorScheme.secondary
                 )
+            )
+        }
+
+        // Autocomplete Popup
+        if (suggestions.isNotEmpty()) {
+            val cursorLine = value.text.take(value.selection.start).count { it == '\n' }
+            val topOffset = (cursorLine + 1) * 20 + 10 // Approximate line height + padding
+            
+            Card(
+                modifier = Modifier
+                    .padding(start = 40.dp, top = topOffset.dp) // Offset for line numbers
+                    .align(Alignment.TopStart),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column {
+                    suggestions.forEach { suggestion ->
+                        TextButton(
+                            onClick = {
+                                val text = value.text
+                                val cursor = value.selection.start
+                                val currentWord = text.take(cursor).takeLastWhile { it.isLetter() }
+                                val newText = text.removeRange(cursor - currentWord.length, cursor).insert(cursor - currentWord.length, suggestion)
+                                onValueChange(TextFieldValue(newText, TextRange(cursor - currentWord.length + suggestion.length)))
+                                suggestions = emptyList()
+                            },
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                        ) {
+                            Text(suggestion, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
             }
         }
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.weight(1f),
-            textStyle = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontSize = 14.sp
-            ),
-            minLines = 12,
-            maxLines = 30,
-            visualTransformation = SyntaxHighlightTransformation(MaterialTheme.colorScheme.secondary),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                cursorColor = MaterialTheme.colorScheme.secondary
-            )
-        )
     }
 }
 
@@ -548,7 +609,7 @@ fun OpponentCodeView(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        Text("$nickname's code", style = MaterialTheme.typography.labelMedium)
+        Text("$nickname's code", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(8.dp))
         Box(
             modifier = Modifier
@@ -566,7 +627,8 @@ fun OpponentCodeView(
                 textStyle = TextStyle(
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
                 ),
                 minLines = 6,
                 colors = TextFieldDefaults.colors(
@@ -586,21 +648,41 @@ private fun smartCodeInput(
     previous: TextFieldValue,
     current: TextFieldValue
 ): TextFieldValue {
+    val inserted = current.text.length - previous.text.length
+    if (inserted == 0) return current // Selection change or no text change
+
     var text = current.text
     var selection = current.selection.start
-    val inserted = current.text.length - previous.text.length
+    
     val wasSingleInsert = inserted == 1 && current.selection.start == current.selection.end
     if (wasSingleInsert && selection > 0) {
         val insertedChar = current.text[selection - 1]
         when (insertedChar) {
+            '\t' -> {
+                // Replace tab with 4 spaces
+                text = text.substring(0, selection - 1) + "    " + text.substring(selection)
+                selection += 3 // -1 + 4
+            }
             '\n' -> {
                 val prevCursor = previous.selection.start
                 val prevLine = previous.text.substring(0, prevCursor).substringAfterLast('\n', "")
                 val baseIndent = prevLine.takeWhile { it == ' ' || it == '\t' }
-                val extraIndent = if (prevLine.trimEnd().endsWith("{")) "    " else ""
-                val indent = baseIndent + extraIndent
-                text = text.substring(0, selection) + indent + text.substring(selection)
-                selection += indent.length
+                
+                // Check for Enter between { and }
+                val charBefore = previous.text.getOrNull(prevCursor - 1)
+                val charAfter = previous.text.getOrNull(prevCursor)
+                
+                if (charBefore == '{' && charAfter == '}') {
+                    val extraIndent = "    "
+                    val newContent = "\n" + baseIndent + extraIndent + "\n" + baseIndent
+                    text = text.substring(0, selection - 1) + newContent + text.substring(selection)
+                    selection += baseIndent.length + extraIndent.length // Position cursor on middle line
+                } else {
+                    val extraIndent = if (prevLine.trimEnd().endsWith("{")) "    " else ""
+                    val indent = baseIndent + extraIndent
+                    text = text.substring(0, selection) + indent + text.substring(selection)
+                    selection += indent.length
+                }
             }
             '(', '{', '[' -> {
                 val closing = when (insertedChar) {
@@ -623,4 +705,8 @@ private fun smartCodeInput(
         }
     }
     return TextFieldValue(text, TextRange(selection))
+}
+
+private fun String.insert(index: Int, string: String): String {
+    return this.substring(0, index) + string + this.substring(index)
 }
